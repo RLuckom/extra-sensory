@@ -9,6 +9,8 @@ cloning the repository, adding an environment variable:
 
     export RTOS_DIR=<path-to-rtos>
 
-and then you can use make from the root directory of this repo:
+and then you can use make from the root directory of this repo according to the
+esp-open-rtos instructions. For instance, to make this code and flash it to an
+ESP (after checking that the ESPPORT is correct), you could use:
 
     make flash -j4 ESPPORT=/dev/ttyUSB0
