@@ -1,143 +1,32 @@
-/* The "blink" example, but writing the LED from timer interrupts
- *
- * This sample code is in the public domain.
- */
 #include "espressif/esp_common.h"
 #include "esp/uart.h"
+#include "stdint.h"
 #include <string.h>
+#include <stdio.h>
+#include <netdb.h>
 #include "FreeRTOS.h"
 #include "task.h"
 #include <ssid_config.h>
 #include "esp8266.h"
+#include "../include/dht11.h"
 
-#include <espressif/esp_sta.h>
-#include <espressif/esp_wifi.h>
-
-#include "lwip/err.h"
-#include "lwip/sockets.h"
-#include "lwip/sys.h"
-#include "lwip/netdb.h"
-#include "lwip/dns.h"
-
-#include "ssid_config.h"
-
-#define WEB_SERVER "192.168.1.132"
-#define WEB_PORT 3000
-#define WEB_URL "http://192.168.1.132:3000/"
-char request[300];
-char details[80];
-char headers[200];
 float temperature;
 float humidity;
 float moisture;
-#define PUB_MSG_LEN 48
 
-void http_post_task(void *pvParameters)
-{
-    int successes = 0, failures = 0;
-    printf("HTTP get task starting...\r\n");
+uint8_t dht_data = 14;
+uint8_t soil_moisture_vcc = 4;
+uint32_t maxcycles = 800000; 
 
-    while(1) {
-        const struct addrinfo hints = {
-            .ai_family = AF_INET,
-            .ai_socktype = SOCK_STREAM,
-        };
-        struct addrinfo *res;
-
-        printf("Running DNS lookup for %s...\r\n", WEB_SERVER);
-        int err = getaddrinfo(WEB_SERVER, "3000", &hints, &res);
-
-        if(err != 0 || res == NULL) {
-            printf("DNS lookup failed err=%d res=%p\r\n", err, res);
-            if(res)
-                freeaddrinfo(res);
-            vTaskDelay(1000 / portTICK_RATE_MS);
-            failures++;
-            continue;
-        }
-        /* Note: inet_ntoa is non-reentrant, look at ipaddr_ntoa_r for "real" code */
-        struct in_addr *addr = &((struct sockaddr_in *)res->ai_addr)->sin_addr;
-        printf("DNS lookup succeeded. IP=%s\r\n", inet_ntoa(*addr));
-
-        int s = socket(res->ai_family, res->ai_socktype, 0);
-        if(s < 0) {
-            printf("... Failed to allocate socket.\r\n");
-            freeaddrinfo(res);
-            vTaskDelay(1000 / portTICK_RATE_MS);
-            failures++;
-            continue;
-        }
-
-        printf("... allocated socket\r\n");
-
-        if(connect(s, res->ai_addr, res->ai_addrlen) != 0) {
-            close(s);
-            freeaddrinfo(res);
-            printf("... socket connect failed.\r\n");
-            vTaskDelay(4000 / portTICK_RATE_MS);
-            failures++;
-            continue;
-        }
-
-        printf("... connected\r\n");
-        freeaddrinfo(res);
-        request[0] = "\0";
-        snprintf(details, 80, "{\"temp\": %.3f, \"hum\": %.3f, \"mois\": %.3f}\r\n", temperature, humidity, moisture);
-
-        snprintf(request, 300, "POST / HTTP/1.1\r\nHost: %s\r\nUser-Agent: esp-open-rtos/0.1 esp8266\r\nConnection: close\r\nContent-Type: application/json; charset=UTF-8\r\nContent-Length: %d\r\n\r\n%s\r\n", WEB_URL, strlen(details), details);
-        printf(request);
-        if (write(s, request, strlen(request)) < 0) {
-            printf("... socket send failed\r\n");
-            close(s);
-            vTaskDelay(4000 / portTICK_RATE_MS);
-            failures++;
-            continue;
-        }
-        printf("... socket send success\r\n");
-
-        static char recv_buf[200];
-        int r;
-        do {
-            printf("receiving...");
-            bzero(recv_buf, 200);
-            r = read(s, recv_buf, 199);
-            if(r > 0) {
-                printf("%s", recv_buf);
-            }
-        } while(r > 0);
-
-        printf("... done reading from socket. Last read return=%d errno=%d\r\n", r, errno);
-        if(r != 0)
-            failures++;
-        else
-            successes++;
-        close(s);
-        printf("successes = %d failures = %d\r\n", successes, failures);
-        vTaskDelay(10000 / portTICK_RATE_MS);
-        printf("\r\nStarting again!\r\n");
-    }
-}
-
-static uint8_t dht_data = 14;
-static uint8_t soil_moisture_vcc = 4;
-
-static int maxcycles = 800000; 
-
-static volatile uint32_t frc1_count;
-static volatile uint32_t frc2_count;
+volatile uint32_t frc1_count;
+volatile uint32_t frc2_count;
 bool valid = true;
 uint8_t data[5];
 
-/* Return a number of ticks to delay based on a time specified 
- * in ms.
- */
 portTickType portTickMs(portTickType ms) {
     return ms / portTICK_RATE_MS;
 }
 
-/* Return a number of ticks to delay based on a time specified 
- * in us.
- */
 portTickType portTickUs(portTickType us) {
     return us / portTICK_RATE_MS / 1000;
 }
@@ -249,21 +138,4 @@ void tempReadTask(void* pvParameters)
         gpio_write(soil_moisture_vcc, 0);
         vTaskDelay(portTickMs(15000));
     }
-}
-
-void user_init(void)
-{
-    uart_set_baud(0, 115200);
-
-    struct sdk_station_config config = {
-        .ssid = WIFI_SSID,
-        .password = WIFI_PASS,
-    };
-
-    /* required to call wifi_set_opmode before station_set_config */
-    sdk_wifi_set_opmode(STATION_MODE);
-    sdk_wifi_station_set_config(&config);
-
-    xTaskCreate(&http_post_task, (signed char *)"post_task", 512, NULL, 2, NULL);
-    xTaskCreate(tempReadTask, (signed char *)"tempReadTask", 1048, NULL, 5, NULL);
 }
