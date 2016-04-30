@@ -28,6 +28,7 @@ char headers[200];
 extern float temperature;
 extern float humidity;
 extern float moisture;
+extern float light;
 
 void http_post_task(void *pvParameters)
 {
@@ -79,7 +80,7 @@ void http_post_task(void *pvParameters)
         printf("... connected\r\n");
         freeaddrinfo(res);
         request[0] = 0;
-        snprintf(details, 80, "{\"temp\": %.3f, \"hum\": %.3f, \"mois\": %.3f}\r\n", temperature, humidity, moisture);
+        snprintf(details, 80, "{\"temp\": %.3f, \"hum\": %.3f, \"mois\": %.3f, \"light\": %.6f}\r\n", temperature, humidity, moisture, light);
 
         snprintf(request, 300, "POST / HTTP/1.1\r\nHost: %s\r\nUser-Agent: esp-open-rtos/0.1 esp8266\r\nConnection: close\r\nContent-Type: application/json; charset=UTF-8\r\nContent-Length: %d\r\n\r\n%s\r\n", WEB_URL, strlen(details), details);
         printf("%s", request);

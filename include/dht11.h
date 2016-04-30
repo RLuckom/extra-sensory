@@ -5,6 +5,7 @@
 extern float temperature;
 extern float humidity;
 extern float moisture;
+extern float light;
 
 extern uint8_t dht_data;
 extern uint8_t soil_moisture_vcc;

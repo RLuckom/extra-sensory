@@ -13,9 +13,11 @@
 float temperature;
 float humidity;
 float moisture;
+float light;
 
 uint8_t dht_data = 14;
 uint8_t soil_moisture_vcc = 4;
+uint8_t light_vcc = 12;
 uint32_t maxcycles = 800000; 
 
 volatile uint32_t frc1_count;
@@ -81,6 +83,7 @@ void tempReadTask(void* pvParameters)
     // wait 2s for dht11 to settle
     vTaskDelay(portTickMs(2000));
     gpio_enable(soil_moisture_vcc, GPIO_OUTPUT);
+    gpio_enable(light_vcc, GPIO_OUTPUT);
     while(1) {
         printf("temp loop\r\n");
         valid = true;
@@ -136,6 +139,10 @@ void tempReadTask(void* pvParameters)
         moisture =  (1.0 / 1024) * sdk_system_adc_read();
         printf ("moisture is %.3f \r\n", moisture); 
         gpio_write(soil_moisture_vcc, 0);
+        gpio_write(light_vcc, 1);
+        vTaskDelay(portTickMs(10));
+        light = sdk_system_adc_read();
+        gpio_write(light_vcc, 0);
         vTaskDelay(portTickMs(15000));
     }
 }
