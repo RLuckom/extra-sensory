@@ -14,3 +14,8 @@ esp-open-rtos instructions. For instance, to make this code and flash it to an
 ESP (after checking that the ESPPORT is correct), you could use:
 
     make flash -j4 ESPPORT=/dev/ttyUSB0
+
+## Notes:
+
+Much of this code is just copied verbatim from examples in esp-open-rtos and
+rearranged for modularity.
